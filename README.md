@@ -6,6 +6,10 @@ dependencies: linux, pipewire, ffmpeg, whisper
 SET YOUR VARIABLES  
 the entry point is: tortoise_bash.sh  
 
+
+while the objective of these scripts is to be ergonomic and to ease up tortoise usage, you still should study the functions, in particular to see what they are consuming  
+ask me if something is not clear, and I'm open to write functions for useful cases that I have not yet contemplated  
+
 remember output folder is: $TORTOISE_DIR/results  
 you need to change the batch size <= number of wavs in the dataset, at $TORTRAIN_DIR/experiments/EXAMPLE_gpt.yml  
 
@@ -22,6 +26,8 @@ t_set_latest_state                     # to keep training your latest checkpoint
 cp_to_voice <target-wav> <voice-name>  # copy this wav to a voice folder
 install_whisper                        # fast whisper setup, set your own variables
 stt_video "video-name.webm"            # split a video into segments, and transcribe them into a metadata.csv
+clean_up_csv_of_audio_not_exist        # remove from the csv the audio files you deleted
+collapse_audio                         # removes silence-clips from a clip
 ```
 
 

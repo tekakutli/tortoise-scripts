@@ -20,7 +20,7 @@ export VAD_DIR="/home/$USER/code/silero-vad/"
 
 # EDIT ZONE
 if [[ "$TTS_TEXT" == "" ]]; then
-     export TTS_TEXT="use set undescore text to set text"
+     export TTS_TEXT="use set underscore text to set the text"
 fi
 
 
@@ -51,7 +51,7 @@ export PATH_VALIDATION="$T_DIR""$T_NAME""-val/metadata.csv"
 # alias tortoise="cd $TORTOISE_DIR'' && python tortoise/do_tts.py --kv_cache --half --preset very_fast"
 alias tortoise="cd $TORTOISE_DIR'' && python tortoise/do_tts.py --kv_cache --half --sampler dpm++2m --steps 30"
 t_default(){
-     more_default="--voice emma --seed 42 --text"
+     more_default="--voice emma --seed 45 --text"
      tortoise $more_default "$TTS_TEXT"
      echo "remember output folder is: $TORTOISE_DIR""results"
 }
@@ -78,35 +78,65 @@ t_get_voice_pth_as(){
 }
 
 t_use_trained(){
-     tortoise --ar-checkpoint "$(t_get_latest_train)" --text "$TTS_TEXT"
-     # tortoise --ar-checkpoint "$(t_get_latest_train)" --text "$TTS_TEXT" --voice silverdale
+     t_get_latest_train
+     # tortoise --ar-checkpoint "$LATEST_GPT_TRAIN" --diff-checkpoint "$LATEST_DIFF_TRAIN" --text "$TTS_TEXT"
+     tortoise --ar-checkpoint "$LATEST_GPT_TRAIN" --text "$TTS_TEXT"
+     # tortoise --ar-checkpoint "$(t_get_latest_train)" --text "$TTS_TEXT" --voice silver
      echo "remember output folder is: $TORTOISE_DIR""results"
 }
 
 t_new_train(){
      rr
-     bash "$SCRIPTS_DIR/quick_experiment.sh"
-     echo "now, edit further this file, (like checkpoint_save_freq, batch_size, disable pretrain_model, etc)"
+     bash "$SCRIPTS_DIR""quick_experiment.sh"
+     echo "now, edit further these files further, (like checkpoint_save_freq, batch_size, disable pretrain_model, etc... or gpt_path for diff)"
      echo $TORTRAIN_DIR"experiments/EXAMPLE_gpt.yml"
+     echo $TORTRAIN_DIR"experiments/EXAMPLE_diff.yml"
 }
+
 t_train(){
      cd $TORTRAIN_DIR"codes"
      python3 train.py -opt ../experiments/EXAMPLE_gpt.yml
 }
+t_train_diff(){
+     t_get_latest_train
+     cd $TORTRAIN_DIR"codes"
+     python3 train.py -opt ../experiments/EXAMPLE_diff.yml
+}
 
 t_get_latest_train(){
-     models_place=$TORTRAIN_DIR"experiments/$NAME_EXPERIMENT/models/"
-     cd $models_place
+     gpt_place=$TORTRAIN_DIR"experiments/$NAME_EXPERIMENT-gpt/models/"
+     diff_place=$TORTRAIN_DIR"experiments/$NAME_EXPERIMENT-diff/models/"
+     mkdir -p $gpt_place
+     mkdir -p $diff_place
+
+     cd $gpt_place
      latest_model=$(ls | tail -1)
-     echo $models_place$latest_model
+     export LATEST_GPT_TRAIN=$gpt_place$latest_model""
+
+     cd $diff_place
+     latest_model=$(ls | tail -1)
+     export LATEST_DIFF_TRAIN=$diff_place$latest_model""
 }
+
 t_set_latest_state(){
-     latest_state="  resume_state: "$(t_get_latest_train)
+     # GPT
+     latest_state="  resume_state: "$LATEST_GPT_TRAIN
      latest_state=$(echo "$latest_state" | sed "s|models|training_state|" | sed "s|_gpt.pth|.state|")
 
      place=$TORTRAIN_DIR"/experiments/EXAMPLE_gpt.yml"
      to_replace=$(grep -m1 resume_state $place)
      sed -i "s|$to_replace|$latest_state|" $place
+     sed -i "s| pretrain_model_gpt| #pretrain_model_gpt|" $place
+
+
+     # DIFF
+     latest_state="  resume_state: "$LATEST_DIFF_TRAIN
+     latest_state=$(echo "$latest_state" | sed "s|models|training_state|" | sed "s|_ddpm.pth|.state|")
+
+     place=$TORTRAIN_DIR"/experiments/EXAMPLE_diff.yml"
+     to_replace=$(grep -m1 resume_state $place)
+     sed -i "s|$to_replace|$latest_state|" $place
+     sed -i "s| pretrain_model_gpt| #pretrain_model_gpt|" $place
 }
 
 cp_to_voice(){
@@ -133,12 +163,37 @@ stt_video(){
           $PATH_TO_WHISPER/main -m $PATH_TO_MODELS/$WHISPER_MODEL -l en -f "$line" -otxt
           echo $line"|"$(cat "$line".txt | sed 's/\.$//' ) >> metadata.csv ; done
 
+     rm "$output_name"-out*.txt
+     clean_up_csv
+}
+stt_audios(){
+
+     ls | grep ".wav" | while read -r line; do
+          temporal_file="$line""-temp.wav"
+          ffmpeg -y -i "$line" -ar 16000 -ac 1 -c:a pcm_s16le "$temporal_file"
+          $PATH_TO_WHISPER/main -m $PATH_TO_MODELS/$WHISPER_MODEL -l en -f "$temporal_file" -otxt
+          mv $temporal_file".txt" $line".txt"
+          rm $temporal_file
+          echo $line"|"$(cat "$line".txt | sed 's/\.$//' ) >> metadata.csv ; done
+
+     rm *.txt
+     clean_up_csv
+}
+
+clean_up_csv(){
+     # CLEAN-UP
      # we remove dots at the end of the sentence, and lowercase everything
      sed -i "s/| /|/" metadata.csv
      tr '[:upper:]' '[:lower:]' < metadata.csv > metadata2.csv
      mv metadata2.csv metadata.csv
+     # remove stuff by whisper that probably confusses gpt
+     cat metadata.csv | grep -v "(" | grep -v "\[" | grep -v "*" > metadata2.csv
+     mv metadata2.csv metadata.csv
 
-     rm "$output_name"-out*.txt
+}
+clean_up_csv_of_audio_not_exist(){
+     ls | while read -r line; do cat metadata.csv | grep -m1 $line >> metadata2.csv ; done
+     mv metadata2.csv metadata.csv
 }
 
 #detects human voice, and then removes silence spaces that are way too big
@@ -177,7 +232,10 @@ install_whisper(){
      # wget https://huggingface.co/datasets/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
      wget https://huggingface.co/Saideva/silero_vad/resolve/main/files/silero_vad.onnx
 
-     cd $PATH_TO_WHISPER
+
+     cd $VAD_DIR".."
+     git clone https://github.com/snakers4/silero-vad
+     cd $PATH_TO_WHISPER".."
      git clone https://github.com/ggerganov/whisper.cpp
      cd whisper.cpp
      make
