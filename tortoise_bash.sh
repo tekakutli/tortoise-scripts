@@ -11,8 +11,15 @@ export TORTRAIN_DIR="/home/$USER/code/DL-Art-School/"
 export SCRIPTS_DIR="/home/$USER/code/tortoise-scripts/"
 
 
+
+
+
+
 # EDIT ZONE
-export TTS_TEXT="the next generation of artist generation"
+if [[ "$TTS_TEXT" == "" ]]; then
+     export TTS_TEXT="use set undescore text to set text"
+fi
+
 
 #speakers_stt.sh variables
 export PATH_TO_WHISPER="/home/$USER/code/whisper.cpp"
@@ -20,10 +27,12 @@ export PATH_TO_MODELS="/home/$USER/files/models"
 export WHISPER_MODEL="ggml-tiny.bin"
 
 export LANG_FROM="en"
-export CSV_OFFSET=0
-#train variables
-export T_NAME="silverdale"
+export CSV_OFFSET=0 #quick fix, just set an offset big enough so new-names don't collide
+#train variables, name of and directory where you are want your dataset
+export T_NAME="sreeni"
 export T_DIR="/home/tekakutli/files/models/"
+
+
 
 
 
@@ -37,11 +46,21 @@ export NAME_VALIDATION="$T_NAME-validation"
 export PATH_VALIDATION="$T_DIR""$T_NAME""-val/metadata.csv"
 
 
+alias tortoise="cd $TORTOISE_DIR'' && python tortoise/do_tts.py --kv_cache --half --preset very_fast"
+t_default(){
+     more_default="--voice emma --seed 42 --text"
+     tortoise $more_default "$TTS_TEXT"
+}
+
 rr(){ #reload this file
      CURRENTDIR=$(pwd)
      cd $SCRIPTS_DIR
      source tortoise_bash.sh
      cd $CURRENTDIR
+}
+set_text(){
+     export TTS_TEXT=$1
+     rr
 }
 
 t_get_voice_pth_as(){
@@ -54,9 +73,6 @@ t_get_voice_pth_as(){
      cp $($TORTOISE_DIR)results/conditioning_latents/$1.pth ./$2.pth
 }
 
-alias tortoise="cd $TORTOISE_DIR'' && python tortoise/do_tts.py --kv_cache --half --preset very_fast"
-alias t_default="tortoise --voice emma --seed 42 --text '$TTS_TEXT'"
-
 t_use_trained(){
      tortoise --text '$TTS_TEXT' --ar-checkpoint "$(t_get_latest_train)" --text "$TTS_TEXT"
      # tortoise --text '$TTS_TEXT' --ar-checkpoint "$(t_get_latest_train)" --text "$TTS_TEXT" --voice silverdale
@@ -64,6 +80,8 @@ t_use_trained(){
 
 t_new_train(){
      bash "$SCRIPTS_DIR/quick_experiment.sh"
+     echo "now, edit further this file, (like checkpoint_save_freq, batch_size, disable pretrain_model, etc)"
+     echo $TORTRAIN_DIR"/experiments/EXAMPLE_gpt.yml"
 }
 t_train(){
      cd $TORTRAIN_DIR"codes"
@@ -85,7 +103,7 @@ t_set_latest_state(){
      sed -i "s|$to_replace|$latest_state|" $place
 }
 
-cp_these_to_voice(){
+cp_to_voice(){
      CURRENTDIR=$(pwd)
      cd $TORTOISE_DIR"tortoise/voices/"
      mkdir -p $2

@@ -2,7 +2,7 @@
 
 # Transcribe what you're hearing, one keybinding away
 # Put something like this in your sway/config:
-# bindsym $mod+Shift+return exec alacritty -e bash /home/tekakutli/code/tortoise-scripts/speakers_stt_sway.sh sway
+# bindsym $mod+Shift+return exec alacritty -e bash /home/tekakutli/code/tortoise-scripts/speakers_stt_sway.sh
 
 # use C-c on the spawned terminal to stop recording and then for whisper to transcribe it
 # close the window to discard the recording, in my case Mod+Q
