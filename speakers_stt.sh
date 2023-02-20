@@ -51,7 +51,11 @@ mkdir -p "./wavs"
 TTT_COUNTER="STT-"$STT_COUNTER
 # cp "$LIVE_RECORD" "./wavs/$TTT_COUNTER.wav"
 cp "$LIVE_RECORD" "$TTT_COUNTER.wav"
-echo "$TTT_COUNTER"".wav|"$(cat "$WAV_RECORD".txt) >> metadata.csv
+
+# we remove dots at the end of the sentence, and lowercase everything
+echo "$TTT_COUNTER"".wav|"$(cat "$WAV_RECORD".txt | sed 's/\.$//') >> metadata.csv
 sed -i "s/| /|/" metadata.csv
+tr '[:upper:]' '[:lower:]' < metadata.csv > metadata2.csv
+mv metadata2.csv metadata.csv
 
 cd $CURRENTDIR
