@@ -28,6 +28,8 @@ install_whisper                        # fast whisper setup, set your own variab
 stt_video "video-name.webm"            # split a video into segments, and transcribe them into a metadata.csv
 clean_up_csv_of_audio_not_exist        # remove from the csv the audio files you deleted
 collapse_audio                         # removes silence-clips from a clip
+timestamp_words                        # timestamp every word in a wav
+vtt_audio                              # vtt(give subtitles) to an audio
 ```
 
 

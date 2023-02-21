@@ -27,7 +27,8 @@ fi
 #speakers_stt.sh variables
 export PATH_TO_WHISPER="/home/$USER/code/whisper.cpp"
 export PATH_TO_MODELS="/home/$USER/files/models"
-export WHISPER_MODEL="ggml-tiny.bin"
+# export WHISPER_MODEL="ggml-tiny.bin"
+export WHISPER_MODEL="ggml-tiny.en.bin"
 
 export LANG_FROM="en"
 export CSV_OFFSET=0 #quick fix, just set an offset big enough so new-names don't collide
@@ -80,7 +81,7 @@ t_get_voice_pth_as(){
 t_use_trained(){
      t_get_latest_train
      # tortoise --ar-checkpoint "$LATEST_GPT_TRAIN" --diff-checkpoint "$LATEST_DIFF_TRAIN" --text "$TTS_TEXT"
-     tortoise --ar-checkpoint "$LATEST_GPT_TRAIN" --text "$TTS_TEXT"
+     tortoise --ar-checkpoint "$LATEST_GPT_TRAIN" --text "$TTS_TEXT" --voice silver
      # tortoise --ar-checkpoint "$(t_get_latest_train)" --text "$TTS_TEXT" --voice silver
      echo "remember output folder is: $TORTOISE_DIR""results"
 }
@@ -179,6 +180,12 @@ stt_audios(){
      rm *.txt
      clean_up_csv
 }
+vtt_audio(){
+     temporal_file="$1""-temp.wav"
+     ffmpeg -y -i "$1" -ar 16000 -ac 1 -c:a pcm_s16le "$temporal_file"
+     $PATH_TO_WHISPER/main -m $PATH_TO_MODELS/$WHISPER_MODEL -l en -f "$temporal_file" -ovtt
+     rm $temporal_file
+}
 
 clean_up_csv(){
      # CLEAN-UP
@@ -228,8 +235,8 @@ collapse_audio(){
 #You set these variables
 install_whisper(){
      cd $PATH_TO_MODELS
-     wget https://huggingface.co/datasets/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
-     # wget https://huggingface.co/datasets/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
+     # wget https://huggingface.co/datasets/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
+     wget https://huggingface.co/datasets/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
      wget https://huggingface.co/Saideva/silero_vad/resolve/main/files/silero_vad.onnx
 
 
@@ -241,4 +248,22 @@ install_whisper(){
      make
 }
 
+# Split audios per Word
+# whisper_timestamped: git clone https://github.com/linto-ai/whisper-timestamped
+timestamp_words(){
+     whisper_timestamped "$1" --model_dir $PATH_TO_MODELS --model tiny.en --output_dir .
+     name=$(echo $1.words | sed "s/.wav.words/.vtt/")
+     cp $1".words.vtt" $name
+     rm $1"".*
+}
 
+find_small_size(){
+     ls -l --block-size=K | grep .wav | awk '{print $5" "$9}' | sed s"/K / /" | sort -rn
+}
+
+split_vtt(){
+     # works both with sentences or words vtt
+     name=$1
+     python $SCRIPTS_DIR""collapse_dir/split_words.py $1 $2 > $name"_list.txt"
+     # echo "mpv --playlist="$1"_list.txt"
+}
